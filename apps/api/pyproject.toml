@@ -47,3 +47,7 @@ files = ["src", "tests"]
 [[tool.mypy.overrides]]
 module = ["fastapi.*"]
 follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["pytesseract"]
+ignore_missing_imports = true

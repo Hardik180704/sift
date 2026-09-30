@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from io import BytesIO
 
+import pytesseract
 from docx import Document
+from pdf2image import convert_from_bytes
 from pypdf import PdfReader
 
 MAX_PAGES = 500
@@ -31,6 +33,13 @@ def parse_document(content: bytes, mime_type: str) -> list[ParsedPage]:
         raise ValueError("Encrypted PDFs are unsupported")
     if len(reader.pages) > MAX_PAGES:
         raise ValueError("PDF exceeds the page limit")
-    return [
-        ParsedPage(index + 1, page.extract_text() or "") for index, page in enumerate(reader.pages)
-    ]
+    pages: list[ParsedPage] = []
+    for index, page in enumerate(reader.pages):
+        text = page.extract_text() or ""
+        if len(text.strip()) < MIN_EMBEDDED_TEXT:
+            image = convert_from_bytes(
+                content, dpi=200, first_page=index + 1, last_page=index + 1, timeout=30
+            )[0]
+            text = pytesseract.image_to_string(image, lang="eng", timeout=30)
+        pages.append(ParsedPage(index + 1, text))
+    return pages
