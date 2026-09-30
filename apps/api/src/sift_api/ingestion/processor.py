@@ -46,7 +46,7 @@ def process_document(settings: Settings, user_id: UUID, document_id: UUID) -> No
                 .select("id")
                 .eq("document_id", str(document_id))
                 .eq("user_id", str(user_id))
-                .eq("version_number", 1)
+                .eq("storage_key", document["storage_key"])
                 .single()
                 .execute()
                 .data
@@ -72,6 +72,9 @@ def process_document(settings: Settings, user_id: UUID, document_id: UUID) -> No
                 ]
             ).execute()
         client.table("documents").update({"state": "EXTRACTING"}).eq("id", str(document_id)).eq(
+            "user_id", str(user_id)
+        ).execute()
+        client.table("document_extractions").delete().eq("document_id", str(document_id)).eq(
             "user_id", str(user_id)
         ).execute()
         extractions = [extraction for chunk in chunks for extraction in extract_dates(chunk.text)]
