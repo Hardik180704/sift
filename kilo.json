@@ -1,0 +1,14 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "mcp": {
+    "supabase-dev": {
+      "type": "remote",
+      "url": "https://mcp.supabase.com/mcp?project_ref=huagpuvaoqqjyzdeslqz",
+      "enabled": true,
+      "timeout": 30000
+    }
+  },
+  "permission": {
+    "supabase_*": "ask"
+  }
+}

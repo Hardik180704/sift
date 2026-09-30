@@ -1,0 +1,18 @@
+{
+  "name": "sift",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "npm@10.9.8",
+  "workspaces": [
+    "apps/web",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=@sift/web",
+    "check": "npm run lint --workspace=@sift/web && npm run typecheck --workspace=@sift/web",
+    "dev:web": "npm run dev --workspace=@sift/web",
+    "format": "npm run format --workspace=@sift/web",
+    "format:check": "npm run format:check --workspace=@sift/web",
+    "test": "npm run test --workspace=@sift/web"
+  }
+}
