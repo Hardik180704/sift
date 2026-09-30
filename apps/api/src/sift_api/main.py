@@ -14,6 +14,8 @@ from sift_api.config import get_settings
 from sift_api.ingestion.schemas import UploadConfirmationResponse, UploadRequest, UploadResponse
 from sift_api.ingestion.uploads import UploadService
 from sift_api.ingestion.workflows import ingest_document, inngest_client
+from sift_api.retrieval.schemas import RetrievalRequest, RetrievalResponse
+from sift_api.retrieval.service import RetrievalService
 
 
 class HealthResponse(BaseModel):
@@ -78,6 +80,16 @@ def create_app() -> FastAPI:
         except LookupError as error:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
         return UploadConfirmationResponse(document_id=document_id, state="QUEUED")
+
+    @app.post("/v1/retrieval", response_model=RetrievalResponse, tags=["retrieval"])  # type: ignore[untyped-decorator]
+    def retrieve_sources(
+        request: RetrievalRequest,
+        user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    ) -> RetrievalResponse:
+        """Return only page-level source evidence owned by the verified caller."""
+        return RetrievalResponse(
+            sources=RetrievalService(settings).retrieve(user.user_id, request.query, request.limit)
+        )
 
     return app
 
