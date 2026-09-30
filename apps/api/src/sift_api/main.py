@@ -1,5 +1,6 @@
 """FastAPI application entrypoint."""
 
+import json
 import os
 from typing import Annotated
 from uuid import UUID
@@ -7,8 +8,11 @@ from uuid import UUID
 import inngest.fast_api
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from sift_api.assistant.schemas import AssistantRequest, AssistantResponse
+from sift_api.assistant.service import AssistantService
 from sift_api.auth import AuthenticatedUser, get_current_user
 from sift_api.config import get_settings
 from sift_api.ingestion.schemas import UploadConfirmationResponse, UploadRequest, UploadResponse
@@ -40,8 +44,8 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[origin.rstrip("/") for origin in settings.cors_origins.split(",")],
         allow_credentials=True,
-        allow_methods=["GET"],
-        allow_headers=[],
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
     )
     if settings.inngest_signing_key is not None:
         os.environ["INNGEST_SIGNING_KEY"] = settings.inngest_signing_key.get_secret_value()
@@ -90,6 +94,37 @@ def create_app() -> FastAPI:
         return RetrievalResponse(
             sources=RetrievalService(settings).retrieve(user.user_id, request.query, request.limit)
         )
+
+    @app.post("/v1/assistant", response_model=AssistantResponse, tags=["assistant"])  # type: ignore[untyped-decorator]
+    def assistant_answer(
+        request: AssistantRequest,
+        user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    ) -> AssistantResponse:
+        """Return a persisted, citation-gated grounded assistant response."""
+        try:
+            return AssistantService(settings).answer(
+                user.user_id, request.question, request.conversation_id
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+    @app.post("/v1/assistant/stream", tags=["assistant"])  # type: ignore[untyped-decorator]
+    def stream_assistant_answer(
+        request: AssistantRequest,
+        user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    ) -> StreamingResponse:
+        """Stream a typed result event while keeping persistence inside the assistant service."""
+        try:
+            result = AssistantService(settings).answer(
+                user.user_id, request.question, request.conversation_id
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+        def events() -> object:
+            yield f"event: answer\ndata: {json.dumps(result.model_dump(mode='json'))}\n\n"
+
+        return StreamingResponse(events(), media_type="text/event-stream")
 
     return app
 
