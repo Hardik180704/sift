@@ -29,10 +29,29 @@ class ChunkIndexer:
         )
         self._model = settings.embedding_model
 
+    def ensure_collection(self) -> None:
+        """Create the approved vector collection and retrieval filter indexes once."""
+        if self._qdrant.collection_exists(self._collection):
+            return
+        self._qdrant.create_collection(
+            collection_name=self._collection,
+            vectors_config=models.VectorParams(
+                size=self._dimensions,
+                distance=models.Distance.COSINE,
+            ),
+        )
+        for field_name in ("user_id", "document_id", "document_version_id"):
+            self._qdrant.create_payload_index(
+                collection_name=self._collection,
+                field_name=field_name,
+                field_schema=models.PayloadSchemaType.KEYWORD,
+            )
+
     def index(
         self, user_id: UUID, document_id: UUID, version_id: UUID, chunks: list[Chunk]
     ) -> None:
         """Delete the exact prior version then synchronously upsert deterministic points."""
+        self.ensure_collection()
         self._qdrant.delete(
             collection_name=self._collection,
             points_selector=models.FilterSelector(
