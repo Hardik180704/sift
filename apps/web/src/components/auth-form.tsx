@@ -54,20 +54,49 @@ export function AuthForm({ mode }: AuthFormProps) {
   }
 
   return (
-    <form onSubmit={onSubmit}>
-      <label htmlFor="email">Email</label>
-      <input autoComplete="email" id="email" name="email" required type="email" />
-      <label htmlFor="password">Password</label>
-      <input
-        autoComplete={isSignUp ? "new-password" : "current-password"}
-        id="password"
-        minLength={8}
-        name="password"
-        required
-        type="password"
-      />
-      {error ? <p role="alert">{error}</p> : null}
-      <button disabled={isSubmitting} type="submit">
+    <form className="mt-8 flex flex-col gap-5" onSubmit={onSubmit}>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm text-[var(--ink-soft)]" htmlFor="email">
+          Email
+        </label>
+        <input
+          autoComplete="email"
+          className="rounded-lg border hairline bg-[var(--paper)] px-3 py-2.5 text-sm"
+          id="email"
+          name="email"
+          placeholder="you@example.com"
+          required
+          type="email"
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm text-[var(--ink-soft)]" htmlFor="password">
+          Password
+        </label>
+        <input
+          autoComplete={isSignUp ? "new-password" : "current-password"}
+          className="rounded-lg border hairline bg-[var(--paper)] px-3 py-2.5 text-sm"
+          id="password"
+          minLength={8}
+          name="password"
+          placeholder="At least 8 characters"
+          required
+          type="password"
+        />
+      </div>
+      {error ? (
+        <p
+          className="rounded-md border border-[var(--danger)] px-3 py-2 text-sm text-[var(--danger)]"
+          role="alert"
+        >
+          {error}
+        </p>
+      ) : null}
+      <button
+        className="mt-1 rounded-lg bg-[var(--ink)] py-2.5 text-sm font-medium text-[var(--paper-raised)] transition-opacity hover:opacity-90 disabled:opacity-40"
+        disabled={isSubmitting}
+        type="submit"
+      >
         {isSubmitting ? "Please wait" : isSignUp ? "Create account" : "Sign in"}
       </button>
     </form>
