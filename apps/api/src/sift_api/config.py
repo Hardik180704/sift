@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     embedding_dimensions: int = 1536
     inngest_event_key: SecretStr | None = None
     inngest_signing_key: SecretStr | None = None
+    inngest_api_base_url: str = "https://inn.gs"
 
     @model_validator(mode="after")
     def validate_service_groups(self) -> Settings:
@@ -63,6 +64,15 @@ class Settings(BaseSettings):
         if self.supabase_url is None or self.supabase_service_role_key is None:
             raise RuntimeError("Supabase service-role configuration is unavailable")
         return self.supabase_service_role_key.get_secret_value()
+
+    @property
+    def inngest_event_endpoint(self) -> str:
+        """Return the events endpoint for the active Inngest environment."""
+        if self.inngest_event_key is None:
+            raise RuntimeError("Inngest event configuration is unavailable")
+        return (
+            f"{self.inngest_api_base_url.rstrip('/')}/e/{self.inngest_event_key.get_secret_value()}"
+        )
 
 
 @lru_cache

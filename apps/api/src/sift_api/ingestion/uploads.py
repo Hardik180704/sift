@@ -74,10 +74,8 @@ class UploadService:
         self._client.table("document_jobs").insert(
             {"document_id": str(document_id), "user_id": str(user_id), "state": "QUEUED"}
         ).execute()
-        if self._settings.inngest_event_key is None:
-            raise RuntimeError("Inngest event configuration is unavailable")
         response = httpx.post(
-            f"https://inn.gs/e/{self._settings.inngest_event_key.get_secret_value()}",
+            self._settings.inngest_event_endpoint,
             json={
                 "name": "document.ingest",
                 "data": {"document_id": str(document_id), "user_id": str(user_id)},

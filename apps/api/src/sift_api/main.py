@@ -1,7 +1,6 @@
 """FastAPI application entrypoint."""
 
 import json
-import os
 from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
@@ -69,7 +68,6 @@ def create_app() -> FastAPI:
         allow_headers=["Authorization", "Content-Type"],
     )
     if settings.inngest_signing_key is not None:
-        os.environ["INNGEST_SIGNING_KEY"] = settings.inngest_signing_key.get_secret_value()
         inngest.fast_api.serve(app, inngest_client, [ingest_document])
 
     @app.get("/health", response_model=HealthResponse, tags=["operations"])  # type: ignore[untyped-decorator]
