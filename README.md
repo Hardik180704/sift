@@ -54,6 +54,17 @@ cp .env.example .env
 uv run uvicorn sift_api.main:app --reload
 ```
 
+Run the Inngest Dev Server in a separate terminal after the API is available:
+
+```bash
+npm run dev:inngest
+```
+
+Local ingestion requires `SIFT_INNGEST_API_BASE_URL=http://127.0.0.1:8288`
+in `apps/api/.env`. The script pins the CLI version, persists its local state,
+and registers the FastAPI workflow endpoint. Do not point Inngest Cloud at a
+localhost URL.
+
 The web health endpoint is `http://localhost:3000/api/health`. The API health
 endpoint is `http://localhost:8000/health`. Environment templates contain only
 placeholders; do not commit populated environment files.

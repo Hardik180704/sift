@@ -4,6 +4,7 @@ node_modules/
 *.tsbuildinfo
 out/
 coverage/
+.inngest/
 
 # Python
 __pycache__/

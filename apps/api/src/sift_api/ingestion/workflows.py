@@ -32,9 +32,6 @@ async def run_processor(user_id: uuid.UUID, document_id: uuid.UUID) -> None:
     await asyncio.to_thread(process_document, get_settings(), user_id, document_id)
 
 
-inngest_client = _build_client(_settings)
-
-
 @inngest_client.create_function(
     fn_id="document-ingest",
     trigger=inngest.TriggerEvent(event="document.ingest"),

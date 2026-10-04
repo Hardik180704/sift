@@ -10,6 +10,7 @@
   "scripts": {
     "build": "npm run build --workspace=@sift/web",
     "check": "npm run lint --workspace=@sift/web && npm run typecheck --workspace=@sift/web",
+    "dev:inngest": "npx --yes inngest-cli@1.45.1 dev --persist --no-poll --sdk-url http://127.0.0.1:8000/api/inngest",
     "dev:web": "npm run dev --workspace=@sift/web",
     "format": "npm run format --workspace=@sift/web",
     "format:check": "npm run format:check --workspace=@sift/web",
