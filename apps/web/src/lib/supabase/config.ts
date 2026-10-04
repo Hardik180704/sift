@@ -1,18 +1,19 @@
-function requiredPublicEnvironment(
-  name: "NEXT_PUBLIC_SUPABASE_URL" | "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-) {
-  const value = process.env[name];
-
-  if (!value || value.startsWith("your-")) {
-    throw new Error(`${name} must be configured before using Supabase.`);
-  }
-
-  return value;
-}
+const missingEnvironment = (name: string): never => {
+  throw new Error(
+    `${name} must be configured before using Supabase. Add it to apps/web/.env.local.`,
+  );
+};
 
 export function getSupabasePublicConfig() {
-  return {
-    url: requiredPublicEnvironment("NEXT_PUBLIC_SUPABASE_URL"),
-    publishableKey: requiredPublicEnvironment("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
-  };
+  const url =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? missingEnvironment("NEXT_PUBLIC_SUPABASE_URL");
+  const publishableKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    missingEnvironment("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
+
+  if (url.startsWith("your-")) {
+    missingEnvironment("NEXT_PUBLIC_SUPABASE_URL");
+  }
+
+  return { url, publishableKey };
 }
