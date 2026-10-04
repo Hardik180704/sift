@@ -60,7 +60,7 @@ class UploadService:
         )
 
     def confirm(self, user_id: UUID, document_id: UUID) -> None:
-        """Atomically queue an uploaded document owned by the verified caller."""
+        """Idempotently ingest: queue uploads and re-deliver queued retries."""
         result = (
             self._client.table("documents")
             .update({"state": "QUEUED"})
@@ -70,10 +70,20 @@ class UploadService:
             .execute()
         )
         if not result.data:
-            raise LookupError("Document is not available for ingestion")
-        self._client.table("document_jobs").insert(
-            {"document_id": str(document_id), "user_id": str(user_id), "state": "QUEUED"}
-        ).execute()
+            queued = (
+                self._client.table("documents")
+                .update({"state": "QUEUED", "updated_at": "now()"})
+                .eq("id", str(document_id))
+                .eq("user_id", str(user_id))
+                .eq("state", "QUEUED")
+                .execute()
+            )
+            if not queued.data:
+                raise LookupError("Document is not available for ingestion")
+        else:
+            self._client.table("document_jobs").insert(
+                {"document_id": str(document_id), "user_id": str(user_id), "state": "QUEUED"}
+            ).execute()
         response = httpx.post(
             self._settings.inngest_event_endpoint,
             json={
