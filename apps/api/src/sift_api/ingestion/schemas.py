@@ -6,6 +6,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+UPLOADABLE_MIME_TYPES = frozenset(
+    {
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "text/plain",
+    }
+)
+
 
 class UploadRequest(BaseModel):
     """Metadata required before the browser uploads a private object."""

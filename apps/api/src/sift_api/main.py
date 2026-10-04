@@ -15,6 +15,7 @@ from sift_api.assistant.schemas import AssistantRequest, AssistantResponse
 from sift_api.assistant.service import AssistantService
 from sift_api.auth import AuthenticatedUser, get_current_user
 from sift_api.config import get_settings
+from sift_api.ingestion.documents import DocumentListResponse, DocumentService
 from sift_api.ingestion.schemas import UploadConfirmationResponse, UploadRequest, UploadResponse
 from sift_api.ingestion.uploads import UploadService
 from sift_api.ingestion.workflows import ingest_document, inngest_client
@@ -85,6 +86,13 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
         return UploadConfirmationResponse(document_id=document_id, state="QUEUED")
 
+    @app.get("/v1/documents", response_model=DocumentListResponse, tags=["documents"])  # type: ignore[untyped-decorator]
+    def list_documents(
+        user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    ) -> DocumentListResponse:
+        """Return only documents owned by the verified caller, newest first."""
+        return DocumentService(settings).list_documents(user.user_id)
+
     @app.post("/v1/retrieval", response_model=RetrievalResponse, tags=["retrieval"])  # type: ignore[untyped-decorator]
     def retrieve_sources(
         request: RetrievalRequest,
@@ -122,6 +130,11 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
         def events() -> object:
+            answer_text = result.answer
+            piece_size = 48
+            for start in range(0, len(answer_text), piece_size):
+                piece = answer_text[start : start + piece_size]
+                yield f"event: delta\ndata: {json.dumps({'text': piece})}\n\n"
             yield f"event: answer\ndata: {json.dumps(result.model_dump(mode='json'))}\n\n"
 
         return StreamingResponse(events(), media_type="text/event-stream")

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { Workspace } from "@/components/workspace";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ApplicationHomePage() {
@@ -12,10 +13,5 @@ export default async function ApplicationHomePage() {
     redirect("/login");
   }
 
-  return (
-    <main>
-      <h1>Your documents</h1>
-      <p>Authenticated as {user.email ?? "your Sift account"}.</p>
-    </main>
-  );
+  return <Workspace userEmail={user.email ?? null} />;
 }
