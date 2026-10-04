@@ -74,10 +74,9 @@ export function Workspace({ userEmail }: WorkspaceProps) {
       const objectUrl = new URL(target.signed_upload_url);
       objectUrl.searchParams.set("token", target.signed_upload_token);
       const upload = await fetch(objectUrl, {
-        method: "POST",
+        method: "PUT",
         headers: {
           "content-type": file.type || "application/octet-stream",
-          "cache-control": "3600",
         },
         body: file,
       });
