@@ -87,34 +87,90 @@ export function ChatPanel({ documents, onInspectSource }: ChatPanelProps) {
       });
     }
 
+    let bufferedText = "";
+    let receivedDelta = false;
+    const completedAnswer = { payload: null as AnswerPayload | null };
+    let revealFrame: number | null = null;
+    let lastRevealAt = 0;
+    let streamClosed = false;
+    let resolveReveal: () => void = () => undefined;
+    const revealComplete = new Promise<void>((resolve) => {
+      resolveReveal = resolve;
+    });
+
+    function finishReveal() {
+      if (revealFrame !== null || !streamClosed || bufferedText) return;
+      resolveReveal();
+    }
+
+    function revealNext(timestamp: number) {
+      revealFrame = null;
+      const elapsed = lastRevealAt === 0 ? 16 : timestamp - lastRevealAt;
+      lastRevealAt = timestamp;
+      const characterCount = Math.min(bufferedText.length, Math.max(1, Math.floor(elapsed * 0.09)));
+      const nextText = bufferedText.slice(0, characterCount);
+      bufferedText = bufferedText.slice(characterCount);
+      if (nextText) {
+        patchAssistant((last) => ({ text: last.text + nextText }));
+      }
+      if (bufferedText) {
+        revealFrame = requestAnimationFrame(revealNext);
+        return;
+      }
+      finishReveal();
+    }
+
+    function startReveal() {
+      if (revealFrame === null && bufferedText) {
+        revealFrame = requestAnimationFrame(revealNext);
+      }
+    }
+
     try {
-      const response = await apiFetch("/v1/assistant/stream", {
+      const streamResponse = await apiFetch("/v1/assistant/stream", {
         method: "POST",
         body: JSON.stringify({ question: prompt }),
       });
-      if (!response.ok || response.body === null) {
-        const detail = response.ok ? "empty response" : `${response.status}`;
+      if (!streamResponse.ok || streamResponse.body === null) {
+        const detail = streamResponse.ok ? "empty response" : `${streamResponse.status}`;
         throw new Error(`The assistant could not answer (${detail}).`);
       }
       const handleChunk = createSseAccumulator({
-        onDelta: (text) => patchAssistant((last) => ({ text: last.text + text })),
-        onAnswer: (payload) =>
-          patchAssistant({
-            text: payload.answer,
-            citations: payload.citations,
-            sources: payload.sources,
-            insufficient: payload.insufficient_evidence,
-          }),
+        onDelta: (text) => {
+          receivedDelta = true;
+          bufferedText += text;
+          startReveal();
+        },
+        onAnswer: (payload) => {
+          completedAnswer.payload = payload;
+          if (!receivedDelta) {
+            bufferedText += payload.answer;
+            startReveal();
+          }
+        },
       });
-      const reader = response.body.getReader();
+      const reader = streamResponse.body.getReader();
       const decoder = new TextDecoder();
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
         handleChunk(decoder.decode(value, { stream: true }));
       }
-      patchAssistant((last) => (last.text === "" ? { ...last, failed: true } : last));
+      streamClosed = true;
+      finishReveal();
+      await revealComplete;
+      const completedPayload = completedAnswer.payload;
+      if (completedPayload === null) {
+        patchAssistant((last) => (last.text === "" ? { ...last, failed: true } : last));
+      } else {
+        patchAssistant({
+          citations: completedPayload.citations,
+          sources: completedPayload.sources,
+          insufficient: completedPayload.insufficient_evidence,
+        });
+      }
     } catch (streamError) {
+      if (revealFrame !== null) cancelAnimationFrame(revealFrame);
       patchAssistant({ failed: true });
       setError(
         streamError instanceof Error ? streamError.message : "The assistant could not answer.",
@@ -183,7 +239,12 @@ export function ChatPanel({ documents, onInspectSource }: ChatPanelProps) {
                   ) : message.insufficient ? (
                     <p className="text-sm leading-relaxed text-[var(--ink-soft)]">{message.text}</p>
                   ) : message.text ? (
-                    <p className="whitespace-pre-wrap text-[15px] leading-7">{message.text}</p>
+                    <p className="whitespace-pre-wrap text-[15px] leading-7">
+                      {message.text}
+                      {isStreaming && index === messages.length - 1 ? (
+                        <span aria-hidden="true" className="chat-caret" />
+                      ) : null}
+                    </p>
                   ) : (
                     <span aria-label="Sift is thinking" className="chat-thinking" role="status">
                       <i />
