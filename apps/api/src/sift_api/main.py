@@ -2,9 +2,11 @@
 
 import json
 import os
+from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
 
+import httpx
 import inngest.fast_api
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,6 +36,24 @@ class CurrentUserResponse(BaseModel):
     """Public representation of the caller's verified identity."""
 
     user_id: str
+
+
+def run_service[T](operation: Callable[[], T]) -> T:
+    """Translate service failures into HTTP errors the browser can observe."""
+    try:
+        return operation()
+    except LookupError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Backend service is not configured: {error}",
+        ) from error
+    except httpx.HTTPError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Upstream workflow service failed: {error}",
+        ) from error
 
 
 def create_app() -> FastAPI:
@@ -70,7 +90,7 @@ def create_app() -> FastAPI:
         user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     ) -> UploadResponse:
         """Create a private, user-scoped signed upload target."""
-        return UploadService(settings).initiate(user.user_id, request)
+        return run_service(lambda: UploadService(settings).initiate(user.user_id, request))
 
     @app.post(
         "/v1/documents/{document_id}/upload-complete",
@@ -80,10 +100,7 @@ def create_app() -> FastAPI:
     def confirm_upload(
         document_id: UUID, user: Annotated[AuthenticatedUser, Depends(get_current_user)]
     ) -> UploadConfirmationResponse:
-        try:
-            UploadService(settings).confirm(user.user_id, document_id)
-        except LookupError as error:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+        run_service(lambda: UploadService(settings).confirm(user.user_id, document_id))
         return UploadConfirmationResponse(document_id=document_id, state="QUEUED")
 
     @app.get("/v1/documents", response_model=DocumentListResponse, tags=["documents"])  # type: ignore[untyped-decorator]
@@ -91,7 +108,7 @@ def create_app() -> FastAPI:
         user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     ) -> DocumentListResponse:
         """Return only documents owned by the verified caller, newest first."""
-        return DocumentService(settings).list_documents(user.user_id)
+        return run_service(lambda: DocumentService(settings).list_documents(user.user_id))
 
     @app.post("/v1/retrieval", response_model=RetrievalResponse, tags=["retrieval"])  # type: ignore[untyped-decorator]
     def retrieve_sources(
@@ -100,7 +117,11 @@ def create_app() -> FastAPI:
     ) -> RetrievalResponse:
         """Return only page-level source evidence owned by the verified caller."""
         return RetrievalResponse(
-            sources=RetrievalService(settings).retrieve(user.user_id, request.query, request.limit)
+            sources=run_service(
+                lambda: RetrievalService(settings).retrieve(
+                    user.user_id, request.query, request.limit
+                )
+            )
         )
 
     @app.post("/v1/assistant", response_model=AssistantResponse, tags=["assistant"])  # type: ignore[untyped-decorator]
@@ -109,12 +130,11 @@ def create_app() -> FastAPI:
         user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     ) -> AssistantResponse:
         """Return a persisted, citation-gated grounded assistant response."""
-        try:
-            return AssistantService(settings).answer(
+        return run_service(
+            lambda: AssistantService(settings).answer(
                 user.user_id, request.question, request.conversation_id
             )
-        except LookupError as error:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+        )
 
     @app.post("/v1/assistant/stream", tags=["assistant"])  # type: ignore[untyped-decorator]
     def stream_assistant_answer(
@@ -122,12 +142,11 @@ def create_app() -> FastAPI:
         user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     ) -> StreamingResponse:
         """Stream a typed result event while keeping persistence inside the assistant service."""
-        try:
-            result = AssistantService(settings).answer(
+        result = run_service(
+            lambda: AssistantService(settings).answer(
                 user.user_id, request.question, request.conversation_id
             )
-        except LookupError as error:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+        )
 
         def events() -> object:
             answer_text = result.answer
