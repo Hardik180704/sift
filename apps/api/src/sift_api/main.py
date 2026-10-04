@@ -19,7 +19,7 @@ from sift_api.config import get_settings
 from sift_api.ingestion.documents import DocumentListResponse, DocumentService
 from sift_api.ingestion.schemas import UploadConfirmationResponse, UploadRequest, UploadResponse
 from sift_api.ingestion.uploads import UploadService
-from sift_api.ingestion.workflows import ingest_document, inngest_client
+from sift_api.ingestion.workflows import ingest_function, inngest_client
 from sift_api.retrieval.schemas import RetrievalRequest, RetrievalResponse
 from sift_api.retrieval.service import RetrievalService
 
@@ -67,8 +67,8 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],
     )
-    if settings.inngest_signing_key is not None:
-        inngest.fast_api.serve(app, inngest_client, [ingest_document])
+    if inngest_client is not None and ingest_function is not None:
+        inngest.fast_api.serve(app, inngest_client, [ingest_function])
 
     @app.get("/health", response_model=HealthResponse, tags=["operations"])  # type: ignore[untyped-decorator]
     def health() -> HealthResponse:

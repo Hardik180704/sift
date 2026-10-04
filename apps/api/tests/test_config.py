@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from sift_api.config import Settings
+from sift_api.ingestion.workflows import _load_workflow_registration
 
 
 def test_rejects_partial_supabase_configuration(
@@ -26,3 +27,15 @@ def test_requires_supabase_in_production(monkeypatch: pytest.MonkeyPatch, tmp_pa
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValidationError, match="required in production"):
         Settings(environment="production")
+
+
+def test_does_not_register_ingest_workflow_without_signing_key(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    settings = Settings()
+
+    client, function = _load_workflow_registration(settings)
+
+    assert client is None
+    assert function is None
