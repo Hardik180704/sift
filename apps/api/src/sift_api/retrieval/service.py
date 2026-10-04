@@ -2,16 +2,25 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, cast
 from uuid import UUID
 
 from openai import OpenAI
+from postgrest.exceptions import APIError
 from qdrant_client import QdrantClient, models
 from supabase import create_client
 
 from sift_api.config import Settings
 from sift_api.retrieval.fusion import reciprocal_rank_fusion
 from sift_api.retrieval.schemas import SourceEvidence
+
+_FTS_ALLOWED = re.compile(r"[\w']+")
+
+
+def _sanitize_fts_query(query: str) -> str:
+    """Reduce raw text to safe plainto_tsquery terms."""
+    return " ".join(dict.fromkeys(_FTS_ALLOWED.findall(query)))
 
 
 class RetrievalService:
@@ -89,13 +98,19 @@ class RetrievalService:
         ]
 
     def _keyword_candidates(self, user_id: UUID, query: str, limit: int) -> list[UUID]:
-        rows = cast(
-            list[dict[str, Any]],
-            self._supabase.table("chunks")
-            .select("id")
-            .eq("user_id", str(user_id))
-            .text_search("search_vector", query, options={"type": "websearch"})
-            .execute()
-            .data,
-        )
+        sanitized = _sanitize_fts_query(query)
+        if not sanitized:
+            return []
+        try:
+            rows = cast(
+                list[dict[str, Any]],
+                self._supabase.table("chunks")
+                .select("id")
+                .eq("user_id", str(user_id))
+                .text_search("search_vector", sanitized, options={"type": "plain"})
+                .execute()
+                .data,
+            )
+        except APIError:
+            return []
         return [UUID(row["id"]) for row in rows[:limit]]
