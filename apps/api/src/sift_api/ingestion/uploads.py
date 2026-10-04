@@ -49,12 +49,13 @@ class UploadService:
             }
         ).execute()
         signed: Any = self._client.storage.from_("documents").create_signed_upload_url(storage_key)
-        if not signed.get("signedURL") or not signed.get("token"):
+        signed_url = signed.get("signedUrl") or signed.get("signed_url") or signed.get("signedURL")
+        if not signed_url or not signed.get("token"):
             raise RuntimeError("Supabase did not create a signed upload target")
         return UploadResponse(
             document_id=document_id,
             storage_key=storage_key,
-            signed_upload_url=str(signed["signedURL"]),
+            signed_upload_url=str(signed_url),
             signed_upload_token=str(signed["token"]),
         )
 
