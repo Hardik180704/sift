@@ -106,12 +106,51 @@ body {
   animation: sift-enter 240ms ease-out both;
 }
 
+.chat-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  min-height: 1.75rem;
+}
+
+.chat-thinking i {
+  width: 0.36rem;
+  height: 0.36rem;
+  border-radius: 999px;
+  background: var(--ink-soft);
+  animation: sift-think 900ms ease-in-out infinite;
+}
+
+.chat-thinking i:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.chat-thinking i:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+@keyframes sift-think {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
   }
 
   .animate-enter {
+    animation: none;
+  }
+
+  .chat-thinking i {
     animation: none;
   }
 
