@@ -6,6 +6,7 @@ from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
+from sift_api.assistant.generation import AnswerGenerator
 from sift_api.retrieval.schemas import SourceEvidence
 
 
@@ -26,7 +27,9 @@ def route_intent(state: AssistantState) -> AssistantState:
     return {"intent": "document"}
 
 
-def generate_grounded_answer(state: AssistantState) -> AssistantState:
+def generate_grounded_answer(
+    state: AssistantState, answer_generator: AnswerGenerator | None = None
+) -> AssistantState:
     """Generate only from retrieved evidence; lack of evidence remains explicit."""
     if state["intent"] == "non_document":
         return {
@@ -39,8 +42,12 @@ def generate_grounded_answer(state: AssistantState) -> AssistantState:
             "answer": "I do not have enough evidence in your uploaded documents to answer that.",
             "insufficient_evidence": True,
         }
-    excerpts = "\n\n".join(source.content for source in sources[:3])
-    return {"answer": excerpts, "insufficient_evidence": False}
+    if answer_generator is None:
+        return {"answer": sources[0].content, "insufficient_evidence": False}
+    return {
+        "answer": answer_generator(state["question"], sources),
+        "insufficient_evidence": False,
+    }
 
 
 def reflect_citations(state: AssistantState) -> AssistantState:
@@ -61,11 +68,11 @@ def next_after_reflection(state: AssistantState) -> str:
     return END
 
 
-def build_graph() -> Any:
+def build_graph(answer_generator: AnswerGenerator | None = None) -> Any:
     """Build the bounded routing, generation, reflection graph."""
     graph = StateGraph(AssistantState)
     graph.add_node("route", route_intent)
-    graph.add_node("generate", generate_grounded_answer)
+    graph.add_node("generate", lambda state: generate_grounded_answer(state, answer_generator))
     graph.add_node("reflect", reflect_citations)
     graph.add_edge(START, "route")
     graph.add_edge("route", "generate")

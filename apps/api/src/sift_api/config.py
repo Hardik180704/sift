@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
+    chat_model: str = "gpt-4.1-mini"
     inngest_event_key: SecretStr | None = None
     inngest_signing_key: SecretStr | None = None
     inngest_api_base_url: str = "https://inn.gs"

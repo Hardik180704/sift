@@ -30,6 +30,29 @@ def test_document_question_carries_retrieved_evidence_into_cited_answer() -> Non
     assert state["answer"] == "The lease renews on 2027-01-15."
 
 
+def test_document_question_uses_configured_answer_generator() -> None:
+    source = SourceEvidence(
+        chunk_id=UUID("10000000-0000-0000-0000-000000000001"),
+        document_id=UUID("20000000-0000-0000-0000-000000000001"),
+        page_number=3,
+        section="Renewal",
+        content="The lease renews on 2027-01-15.",
+        score=0.1,
+    )
+    generator_calls: list[tuple[str, list[SourceEvidence]]] = []
+
+    def generate(question: str, sources: list[SourceEvidence]) -> str:
+        generator_calls.append((question, sources))
+        return "Your lease renews on January 15, 2027."
+
+    state = build_graph(generate).invoke(
+        {"question": "When does my lease renew?", "sources": [source]}
+    )
+
+    assert state["answer"] == "Your lease renews on January 15, 2027."
+    assert generator_calls == [("When does my lease renew?", [source])]
+
+
 def test_non_document_chat_does_not_make_document_claims() -> None:
     state = build_graph().invoke({"question": "Hello", "sources": []})
 

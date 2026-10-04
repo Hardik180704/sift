@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 from supabase import create_client
 
+from sift_api.assistant.generation import build_openai_answer_generator
 from sift_api.assistant.graph import build_graph
 from sift_api.assistant.schemas import AssistantResponse, Citation
 from sift_api.config import Settings
@@ -45,7 +46,7 @@ class AssistantService:
             if not existing:
                 raise LookupError("Conversation was not found")
         sources = RetrievalService(self._settings).retrieve(user_id, question, 8)
-        graph = build_graph()
+        graph = build_graph(build_openai_answer_generator(self._settings))
         state = cast(
             dict[str, Any], graph.invoke({"question": question, "sources": sources, "retries": 0})
         )
